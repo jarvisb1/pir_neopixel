@@ -12,8 +12,9 @@
 #define PIR_PIN         2
 
 //These two values control the speed of the fading on and off. They are essentially two knobs that both control the fade speed. Lower numbers for either will make the fading go faster. Larger numbers will make the fading go slower.
-#define NUM_FADE_STOPS         20
-#define FADE_DELAY_PER_STOP_MS 100
+#define NUM_FADE_STOPS         50
+#define FADE_DELAY_PER_STOP_MS 50
+#define MAX_BRIGHTNESS_PCT     0.3 //Set this to 1.0 to allow it to go to max brightness. 0.5 is 50%, etc.
 
 // How many NeoPixels are attached to the Arduino?
 #define NUM_PIXELS      16
@@ -26,8 +27,27 @@ state curr_state = S_LED_OFF;
 // example for more information on possible values.
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
+void set_leds(float brightness = 1.0)
+{
+  //Serial.print("Setting LEDs to brightness: ");
+  //Serial.println(brightness);
+  
+  uint8_t val = (uint8_t)(255.0 * brightness * MAX_BRIGHTNESS_PCT);
+  for(int i = 0; i < NUM_PIXELS; i++)
+  {
+    pixels.setPixelColor(i, pixels.Color(val, val, val));
+    pixels.show(); // This sends the updated pixel color to the hardware.
+  }  
+}
+
 void setup()
 {
+  /*
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+  */
   pinMode(PIR_PIN, INPUT); // declare sensor as input
 
   // This is for Trinket 5V 16MHz, you can remove these three lines if you are not using a Trinket
@@ -37,21 +57,16 @@ void setup()
   // End of trinket special code
 
   pixels.begin(); // This initializes the NeoPixel library.
-}
-
-void set_leds(float brightness = 1.0)
-{
-  uint8_t val = (uint8_t)(255.0 * brightness);
-  for(int i = 0; i < NUM_PIXELS; i++)
-  {
-    pixels.setPixelColor(i, pixels.Color(val, val, val));
-    pixels.show(); // This sends the updated pixel color to the hardware.
-  }  
+  set_leds(0.0); //Force the LEDs off to begin with
 }
 
 void loop()
 {
   int pir_val;
+
+  //Serial.print("State: ");
+  //Serial.println(curr_state);
+
   switch(curr_state)
   {
     case S_FADE_ON:
@@ -68,6 +83,9 @@ void loop()
       //In "led on" state, look for the PIR to go low, then move to the "fade off" state.
       set_leds(1.0);
       pir_val = digitalRead(PIR_PIN);
+      //Serial.print("PIR read: ");
+      //Serial.println(pir_val);
+
       if (pir_val == LOW)
       {
         curr_state = S_FADE_OFF;
@@ -88,10 +106,14 @@ void loop()
     default:
       //In "led off" state, look for the PIR to go high, then switch to "fade on" state
       pir_val = digitalRead(PIR_PIN);
+      //Serial.print("PIR read: ");
+      //Serial.println(pir_val);
+
       if (pir_val == HIGH)
       {
         curr_state = S_FADE_ON;
       }
       break;
   }
+  delay(100);
 }
