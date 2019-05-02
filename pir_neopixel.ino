@@ -11,18 +11,20 @@
 #define NEOPIXEL_PIN    6
 #define PIR_PIN         2
 
+//These two values control the speed of the fading on and off. They are essentially two knobs that both control the fade speed. Lower numbers for either will make the fading go faster. Larger numbers will make the fading go slower.
+#define NUM_FADE_STOPS         20
+#define FADE_DELAY_PER_STOP_MS 100
+
 // How many NeoPixels are attached to the Arduino?
 #define NUM_PIXELS      16
 
-enum state { S_READ, S_FADE_ON, S_LED_ON, S_FADE_OFF };
-state curr_state = S_READ;
+enum state { S_LED_OFF, S_FADE_ON, S_LED_ON, S_FADE_OFF };
+state curr_state = S_LED_OFF;
 
 // When we setup the NeoPixel library, we tell it how many pixels, and which pin to use to send signals.
 // Note that for older NeoPixel strips you might need to change the third parameter--see the strandtest
 // example for more information on possible values.
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
-
-int delayval = 500; // delay for half a second
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup()
 {
@@ -47,49 +49,48 @@ void set_leds(float brightness = 1.0)
   }  
 }
 
-#define NUM_FADE_STOPS         20
-#define FADE_DELAY_PER_STOP_MS 100
-#define LEDS_ON_MS             3000 //3000 ms = 3 secs
-
 void loop()
 {
   int pir_val;
-  switch(state)
+  switch(curr_state)
   {
     case S_FADE_ON:
-      //In "fade on" mode, fade the lights on then move to the "led on" state
+      //In "fade on" state, fade the lights on then move to the "led on" state
       for (int i = 0; i < NUM_FADE_STOPS; i++)
       {
         set_leds((float)i / NUM_FADE_STOPS);
         delay(FADE_DELAY_PER_STOP_MS);
       }
-      state = S_LED_ON;
+      curr_state = S_LED_ON;
       break;
       
     case S_LED_ON:
-      //In "led on mode", just wait for the defined amount of time, then move to the "fade off" state
+      //In "led on" state, look for the PIR to go low, then move to the "fade off" state.
       set_leds(1.0);
-      delay(LEDS_ON_MS);
-      state = S_FADE_OFF;
+      pir_val = digitalRead(PIR_PIN);
+      if (pir_val == LOW)
+      {
+        curr_state = S_FADE_OFF;
+      }
       break;
       
     case S_FADE_OFF:
-      //In "fade off" mode, fade the lights off then move to the "read" state
+      //In "fade off" state, fade the lights off then move to the "led off" state
       for (int i = NUM_FADE_STOPS - 1; i >= 0; i--)
       {
         set_leds((float)i / NUM_FADE_STOPS);
         delay(FADE_DELAY_PER_STOP_MS);
       }
-      state = S_READ;
+      curr_state = S_LED_OFF;
       break;
       
-    case S_READ:
+    case S_LED_OFF:
     default:
-      //Default mode is the same as "read" mode. In read mode, look for the PIR to go high, then switch to "fade on" mode
+      //In "led off" state, look for the PIR to go high, then switch to "fade on" state
       pir_val = digitalRead(PIR_PIN);
       if (pir_val == HIGH)
       {
-        state = S_FADE_ON;
+        curr_state = S_FADE_ON;
       }
       break;
   }
